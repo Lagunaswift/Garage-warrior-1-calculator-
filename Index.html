@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garage Gym Warrior - Weight Calculator</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 {
+            color: #333;
+            text-align: center;
+        }
+        .input-group {
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: space-around;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .input-group input[type="number"] {
+            width: 100px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .input-field {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        button#generateProgramBtn { /* Specific ID for main button */
+            display: block;
+            width: 100%;
+            padding: 10px 15px;
+            background-color: #5cb85c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        button#generateProgramBtn:hover {
+            background-color: #4cae4c;
+        }
+        #program-output {
+            margin-top: 30px;
+        }
+        .week-block {
+            background-color: #e9ecef;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            border-left: 5px solid #5cb85c;
+        }
+        .week-block h3 {
+            margin-top: 0;
+            color: #5cb85c;
+            text-align: left;
+        }
+        .day-block {
+            margin-bottom: 10px;
+            padding-left: 10px;
+        }
+        .day-block h4 {
+            margin-bottom: 5px;
+            font-size: 1.1em;
+            color: #333;
+        }
+        .exercise-list {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .exercise-list li {
+            padding: 8px 0;
+            border-bottom: 1px dashed #ccc;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .exercise-list li:last-child {
+            border-bottom: none;
+        }
+        .exercise-details {
+            flex-grow: 1;
+        }
+        .notes {
+            font-style: italic;
+            font-size: 0.9em;
+            color: #555;
+            margin-left: 5px;
+        }
+        .adjust-btn {
+            background-color: #f0f0f0;
+            color: #333;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            padding: 3px 8px;
+            font-size: 0.85em;
+            margin-left: 8px;
+            cursor: pointer;
+            line-height: 1.2;
+        }
+        .adjust-btn:hover {
+            background-color: #e0e0e0;
+        }
+
+        @media (max-width: 600px) {
+            .input-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .input-group input[type="number"] {
+                width: 100%;
+            }
+            .exercise-list li {
+                font-size: 0.95em;
+            }
+            .adjust-btn {
+                padding: 2px 5px;
+                font-size: 0.8em;
+                margin-top: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Garage Gym Warrior - Weight Calculator</h1>
+
+        <div class="input-group">
+            <div class="input-field">
+                <label for="rmSquat">Squat 1RM (kg/lbs):</label>
+                <input type="number" id="rmSquat" placeholder="e.g., 100" step="0.5">
+            </div>
+            <div class="input-field">
+                <label for="rmPress">Press 1RM (kg/lbs):</label>
+                <input type="number" id="rmPress" placeholder="e.g., 60" step="0.5">
+            </div>
+            <div class="input-field">
+                <label for="rmDeadlift">Deadlift 1RM (kg/lbs):</label>
+                <input type="number" id="rmDeadlift" placeholder="e.g., 140" step="0.5">
+            </div>
+            <div class="input-field">
+                <label for="rmBench">Bench Press 1RM (kg/lbs):</label>
+                <input type="number" id="rmBench" placeholder="e.g., 80" step="0.5">
+            </div>
+        </div>
+
+        <button id="generateProgramBtn" onclick="generateProgram(true)">Generate Program</button>
+
+        <div id="program-output">
+            </div>
+    </div>
+
+    <script>
+        // Globally accessible variables to store 1RMs
+        let originalOneRepMaxes = {};
+        let currentEffectiveOneRepMaxes = {};
+
+        // Function to calculate weight based on 1RM and percentage, rounded to nearest 0.5
+        function calculateWeight(oneRepMax, percentage) {
+            if (typeof oneRepMax !== 'number' || oneRepMax <= 0 || typeof percentage !== 'number') {
+                 return "N/A";
+            }
+            const rawWeight = oneRepMax * (percentage / 100);
+            return Math.round(rawWeight / 0.5) * 0.5;
+        }
+
+        // Function to adjust the underlying effective 1RM and then regenerate the program display
+        function adjustEffective1RMAndRegenerate(weightSpanId, adjustmentAmount, liftType, originalPercentageForSession) {
+            const weightSpan = document.getElementById(weightSpanId);
+            if (!weightSpan || !currentEffectiveOneRepMaxes[liftType] || typeof originalPercentageForSession !== 'number' || originalPercentageForSession <= 0) {
+                console.error("Cannot adjust: Missing data or invalid percentage for session.", {weightSpanId, liftType, originalPercentageForSession});
+                return;
+            }
+
+            let currentDisplayedWeight = parseFloat(weightSpan.textContent);
+            if (isNaN(currentDisplayedWeight)) {
+                 console.error("Cannot adjust: Current displayed weight is not a number.");
+                 return;
+            }
+
+            let newTargetWeightForSession = currentDisplayedWeight + adjustmentAmount;
+            newTargetWeightForSession = Math.max(0, newTargetWeightForSession);
+            newTargetWeightForSession = Math.round(newTargetWeightForSession / 0.5) * 0.5;
+
+            // Calculate the new effective 1RM for this lift type based on this single session's adjustment
+            const newEffective1RM = (newTargetWeightForSession / originalPercentageForSession) * 100;
+            currentEffectiveOneRepMaxes[liftType] = Math.round(newEffective1RM / 0.5) * 0.5; // Round the new 1RM
+
+            // Regenerate the entire program display using the updated effective 1RMs
+            generateProgram(false); // Pass false to indicate it's not the initial call from the main button
+        }
+
+        const programData = [
+            // WEEK 1
+            { week: 1, day: "Monday", exercises: [ { name: "Squat", sets: 4, reps: 6, percent: 70, lift: "Squat" }, { name: "Press", sets: 3, reps: 6, percent: 65, lift: "Press" }, { name: "Deadlift", sets: 3, reps: 6, percent: 60, lift: "Deadlift" } ] },
+            { week: 1, day: "Wednesday", exercises: [ { name: "Squat or Pause Squat", sets: 2, reps: 6, percent: 60, lift: "Squat" }, { name: "Bench Press", sets: 4, reps: 6, percent: 70, lift: "Bench" }, { name: "Barbell Rows", sets: 4, reps: 8, note: "use a weight you can achieve all 4x8 with strict form" } ] },
+            { week: 1, day: "Friday", exercises: [ { name: "Squat", sets: 3, reps: 6, percent: 65, lift: "Squat" }, { name: "Press", sets: 4, reps: 6, percent: 70, lift: "Press" }, { name: "Deadlift", sets: 1, reps: 6, percent: 70, lift: "Deadlift" } ] },
+            // WEEK 2
+            { week: 2, day: "Monday", exercises: [ { name: "Squat", sets: 4, reps: 5, percent: 75, lift: "Squat" }, { name: "Press", sets: 3, reps: 5, percent: 70, lift: "Press" }, { name: "Deadlift", sets: 3, reps: 5, percent: 65, lift: "Deadlift" } ] },
+            { week: 2, day: "Wednesday", exercises: [ { name: "Squat or Pause Squat", sets: 2, reps: 5, percent: 65, lift: "Squat" }, { name: "Bench Press", sets: 4, reps: 5, percent: 75, lift: "Bench" }, { name: "Barbell Rows", sets: 4, reps: 6, note: "use a weight you can achieve all 4x6 with strict form" } ] },
+            { week: 2, day: "Friday", exercises: [ { name: "Squat", sets: 3, reps: 5, percent: 70, lift: "Squat" }, { name: "Press", sets: 4, reps: 5, percent: 75, lift: "Press" }, { name: "Deadlift", sets: 1, reps: 5, percent: 75, lift: "Deadlift" } ] },
+            // WEEK 3
+            { week: 3, day: "Monday", exercises: [ { name: "Squat", sets: 4, reps: 4, percent: 80, lift: "Squat" }, { name: "Press", sets: 3, reps: 4, percent: 75, lift: "Press" }, { name: "Deadlift", sets: 3, reps: 4, percent: 70, lift: "Deadlift" } ] },
+            { week: 3, day: "Wednesday", exercises: [ { name: "Squat or Pause Squat", sets: 2, reps: 4, percent: 70, lift: "Squat" }, { name: "Bench Press", sets: 4, reps: 4, percent: 80, lift: "Bench" }, { name: "Barbell Rows", sets: 4, reps: 4, note: "use a weight you can achieve all 4x4 with strict form" } ] },
+            { week: 3, day: "Friday", exercises: [ { name: "Squat", sets: 3, reps: 4, percent: 75, lift: "Squat" }, { name: "Press", sets: 4, reps: 4, percent: 80, lift: "Press" }, { name: "Deadlift", sets: 1, reps: 4, percent: 80, lift: "Deadlift" } ] },
+            // WEEK 4
+            { week: 4, day: "Monday", exercises: [ { name: "Squat", sets: 4, reps: 6, percent: 75, lift: "Squat" }, { name: "Press", sets: 3, reps: 6, percent: 70, lift: "Press" }, { name: "Deadlift", sets: 3, reps: 6, percent: 65, lift: "Deadlift" } ] },
+            { week: 4, day: "Wednesday", exercises: [ { name: "Squat or Pause Squat", sets: 2, reps: 6, percent: 65, lift: "Squat" }, { name: "Bench Press", sets: 4, reps: 6, percent: 75, lift: "Bench" }, { name: "Barbell Rows", sets: 4, reps: 8, note: "use a weight you can achieve all 4x8 with strict form – a little more than week 1" } ] },
+            { week: 4, day: "Friday", exercises: [ { name: "Squat", sets: 3, reps: 6, percent: 70, lift: "Squat" }, { name: "Press", sets: 4, reps: 6, percent: 75, lift: "Press" }, { name: "Deadlift", sets: 1, reps: 6, percent: 75, lift: "Deadlift" } ] },
+            // WEEK 5
+            { week: 5, day: "Monday", exercises: [ { name: "Squat", sets: 4, reps: 5, percent: 80, lift: "Squat" }, { name: "Press", sets: 3, reps: 5, percent: 75, lift: "Press" }, { name: "Deadlift", sets: 3, reps: 5, percent: 70, lift: "Deadlift" } ] },
+            { week: 5, day: "Wednesday", exercises: [ { name: "Squat or Pause Squat", sets: 2, reps: 5, percent: 70, lift: "Squat" }, { name: "Bench Press", sets: 4, reps: 5, percent: 80, lift: "Bench" }, { name: "Barbell Rows", sets: 4, reps: 6, note: "use a weight you can achieve all 4x6 with strict form" } ] },
+            { week: 5, day: "Friday", exercises: [ { name: "Squat", sets: 3, reps: 5, percent: 75, lift: "Squat" }, { name: "Press", sets: 4, reps: 5, percent: 80, lift: "Press" }, { name: "Deadlift", sets: 1, reps: 5, percent: 80, lift: "Deadlift" } ] },
+            // WEEK 6
+            { week: 6, day: "Monday", exercises: [ { name: "Squat", sets: 4, reps: 4, percent: 85, lift: "Squat" }, { name: "Press", sets: 3, reps: 4, percent: 80, lift: "Press" }, { name: "Deadlift", sets: 3, reps: 4, percent: 75, lift: "Deadlift" } ] },
+            { week: 6, day: "Wednesday", exercises: [ { name: "Squat or Pause Squat", sets: 2, reps: 4, percent: 75, lift: "Squat" }, { name: "Bench Press", sets: 4, reps: 4, percent: 85, lift: "Bench" }, { name: "Barbell Rows", sets: 4, reps: 4, note: "use a weight you can achieve all 4x4 with strict form" } ] },
+            { week: 6, day: "Friday", exercises: [ { name: "Squat", sets: 3, reps: 4, percent: 80, lift: "Squat" }, { name: "Press", sets: 4, reps: 4, percent: 85, lift: "Press" }, { name: "Deadlift", sets: 1, reps: 4, percent: 85, lift: "Deadlift" } ] },
+            // WEEK 7
+            { week: 7, day: "Monday", exercises: [ { name: "Squat", sets: 4, reps: 6, percent: 80, lift: "Squat" }, { name: "Press", sets: 3, reps: 6, percent: 75, lift: "Press" }, { name: "Deadlift", sets: 3, reps: 6, percent: 70, lift: "Deadlift" } ] },
+            { week: 7, day: "Wednesday", exercises: [ { name: "Squat or Pause Squat", sets: 2, reps: 6, percent: 70, lift: "Squat" }, { name: "Bench Press", sets: 4, reps: 6, percent: 80, lift: "Bench" }, { name: "Barbell Rows", sets: 4, reps: 8, note: "use a weight you can achieve all 4x8 with strict form" } ] },
+            { week: 7, day: "Friday", exercises: [ { name: "Squat", sets: 3, reps: 6, percent: 75, lift: "Squat" }, { name: "Press", sets: 4, reps: 6, percent: 80, lift: "Press" }, { name: "Deadlift", sets: 1, reps: 6, percent: 80, lift: "Deadlift" } ] },
+            // WEEK 8
+            { week: 8, day: "Monday", exercises: [ { name: "Squat", sets: 4, reps: 5, percent: 85, lift: "Squat" }, { name: "Press", sets: 3, reps: 5, percent: 80, lift: "Press" }, { name: "Deadlift", sets: 3, reps: 5, percent: 75, lift: "Deadlift" } ] },
+            { week: 8, day: "Wednesday", exercises: [ { name: "Squat or Pause Squat", sets: 2, reps: 5, percent: 75, lift: "Squat" }, { name: "Bench Press", sets: 4, reps: 5, percent: 85, lift: "Bench" }, { name: "Barbell Rows", sets: 4, reps: 6, note: "use a weight you can achieve all 4x6 with strict form" } ] },
+            { week: 8, day: "Friday", exercises: [ { name: "Squat", sets: 3, reps: 5, percent: 80, lift: "Squat" }, { name: "Press", sets: 4, reps: 5, percent: 85, lift: "Press" }, { name: "Deadlift", sets: 1, reps: 5, percent: 85, lift: "Deadlift" } ] },
+            // WEEK 9
+            { week: 9, day: "Monday", exercises: [ { name: "Squat", sets: 4, reps: 4, percent: 90, lift: "Squat" }, { name: "Press", sets: 3, reps: 4, percent: 85, lift: "Press" }, { name: "Deadlift", sets: 3, reps: 4, percent: 80, lift: "Deadlift" } ] },
+            { week: 9, day: "Wednesday", exercises: [ { name: "Squat or Pause Squat", sets: 2, reps: 4, percent: 80, lift: "Squat" }, { name: "Bench Press", sets: 4, reps: 4, percent: 90, lift: "Bench" }, { name: "Barbell Rows", sets: 4, reps: 4, note: "use a weight you can achieve all 4x4 with strict form" } ] },
+            { week: 9, day: "Friday", exercises: [ { name: "Squat", sets: 3, reps: 4, percent: 85, lift: "Squat" }, { name: "Press", sets: 4, reps: 4, percent: 90, lift: "Press" }, { name: "Deadlift", sets: 1, reps: 4, percent: 90, lift: "Deadlift" } ] },
+            // WEEK 10
+            { week: 10, day: "Monday", exercises: [ { name: "Squat", sets: 4, reps: 4, percent: 80, lift: "Squat" }, { name: "Press", sets: 3, reps: 4, percent: 75, lift: "Press" }, { name: "Deadlift", sets: 3, reps: 4, percent: 70, lift: "Deadlift" } ] },
+            { week: 10, day: "Wednesday", exercises: [ { name: "Squat or Pause Squat", sets: 2, reps: 4, percent: 70, lift: "Squat" }, { name: "Bench Press", sets: 4, reps: 4, percent: 80, lift: "Bench" }, { name: "Barbell Rows", sets: 4, reps: 8, note: "" } ] },
+            { week: 10, day: "Friday", exercises: [ { name: "Squat", sets: 3, reps: 4, percent: 75, lift: "Squat" }, { name: "Press", sets: 4, reps: 4, percent: 80, lift: "Press" }, { name: "Deadlift", sets: 1, reps: 4, percent: 80, lift: "Deadlift" } ] },
+            // WEEK 11
+            { week: 11, day: "Monday", exercises: [ { name: "Squat", sets: 4, reps: "1-2", percent: 95, lift: "Squat" }, { name: "Press", sets: 3, reps: 2, percent: 85, lift: "Press" }, { name: "Deadlift", sets: 3, reps: 2, percent: 85, lift: "Deadlift" } ] },
+            { week: 11, day: "Wednesday", exercises: [ { name: "Squat", sets: 2, reps: 2, percent: 75, lift: "Squat" }, { name: "Bench Press", sets: 4, reps: "1-2", percent: 95, lift: "Bench" }, { name: "BB Rows", sets: 4, reps: 6, note: "" } ] },
+            { week: 11, day: "Friday", exercises: [ { name: "Squat", sets: 3, reps: 2, percent: 85, lift: "Squat" }, { name: "Press", sets: 4, reps: "1-2", percent: 95, lift: "Press" }, { name: "Deadlift", sets: 1, reps: 2, percent: 95, lift: "Deadlift" } ] },
+             // WEEK 12 - Deload
+            { week: 12, day: "Tuesday", exercises: [ { name: "Squat", sets: 3, reps: 3, percent: 80, lift: "Squat" }, { name: "Press", sets: 3, reps: 3, percent: 80, lift: "Press" } ], notes: "Deload Week" },
+            { week: 12, day: "Friday", exercises: [ { name: "Squat", sets: 3, reps: 3, percent: 75, lift: "Squat" }, { name: "Press", sets: 3, reps: 3, percent: 75, lift: "Press" } ], notes: "Deload Week" },
+            // WEEK 13 - Testing
+            { week: 13, day: "Monday or Tuesday", exercises: [ { name: "Find a new 1RM for the Press & Deadlift", note: "" } ], notes: "Testing Week" },
+            { week: 13, day: "Thursday or Friday", exercises: [ { name: "Find a new 1RM for the Squat & Bench Press (optional)", note: "or do lighter Squat/Bench workout for active recovery." } ], notes: "Testing Week" }
+        ];
+
+        function generateProgram(isInitialCallFromButton = true) {
+            if (isInitialCallFromButton) {
+                // Initialize or re-initialize from input fields only when the main button is clicked
+                originalOneRepMaxes = {
+                    "Squat": parseFloat(document.getElementById('rmSquat').value) || 0,
+                    "Press": parseFloat(document.getElementById('rmPress').value) || 0,
+                    "Deadlift": parseFloat(document.getElementById('rmDeadlift').value) || 0,
+                    "Bench": parseFloat(document.getElementById('rmBench').value) || 0
+                };
+                // Deep copy for currentEffectiveOneRepMaxes to start fresh or reset
+                currentEffectiveOneRepMaxes = JSON.parse(JSON.stringify(originalOneRepMaxes));
+            }
+
+            // Use currentEffectiveOneRepMaxes for calculations
+            const rmSquat = currentEffectiveOneRepMaxes["Squat"];
+            const rmPress = currentEffectiveOneRepMaxes["Press"];
+            const rmDeadlift = currentEffectiveOneRepMaxes["Deadlift"];
+            const rmBench = currentEffectiveOneRepMaxes["Bench"];
+
+            const outputDiv = document.getElementById('program-output');
+            outputDiv.innerHTML = '<h2>13-Week Training Plan</h2>'; // Clear previous output
+
+            if (isNaN(rmSquat) || isNaN(rmPress) || isNaN(rmDeadlift) || isNaN(rmBench) ||
+                rmSquat <= 0 || rmPress <= 0 || rmDeadlift <= 0 || rmBench <= 0) {
+                outputDiv.innerHTML += '<p style="color: red; text-align:center;">Please enter valid 1RM values for all lifts to generate the program.</p>';
+                return;
+            }
+
+            let currentWeek = 0;
+            let weekHtml = '';
+
+            programData.forEach((dayInfo, dayIndexGlobal) => {
+                if (dayInfo.week !== currentWeek) {
+                    if (currentWeek !== 0) {
+                        weekHtml += '</div>'; // Close week-block
+                        outputDiv.innerHTML += weekHtml;
+                    }
+                    currentWeek = dayInfo.week;
+                    weekHtml = `<div class="week-block"><h3>WEEK ${currentWeek}</h3>`;
+                    if (dayInfo.notes && (currentWeek === 12 || currentWeek === 13)) {
+                        weekHtml += `<p class="notes">${dayInfo.notes}</p>`;
+                    }
+                }
+
+                const dayIdPart = dayInfo.day.replace(/[^a-zA-Z0-9]/g, '');
+                weekHtml += `<div class="day-block"><h4>${dayInfo.day}</h4><ul class="exercise-list">`;
+
+                dayInfo.exercises.forEach((exercise, exIndex) => {
+                    const weightElementId = `weight-w${currentWeek}-d${dayIdPart}-e${exIndex}`;
+                    let calculatedWeightNum = null;
+                    let displayWeight = "N/A";
+                    let adjustmentButtonsHtml = "";
+
+                    if (exercise.lift && typeof exercise.percent === 'number' && exercise.percent > 0) {
+                        const orm = currentEffectiveOneRepMaxes[exercise.lift]; // Use effective 1RM
+                        calculatedWeightNum = calculateWeight(orm, exercise.percent);
+                        if (calculatedWeightNum !== "N/A") {
+                            displayWeight = calculatedWeightNum.toFixed(1);
+                            // Pass lift type and original percentage for this specific session to the adjustment function
+                            adjustmentButtonsHtml = `
+                                <button class="adjust-btn" onclick="adjustEffective1RMAndRegenerate('${weightElementId}', 2.5, '${exercise.lift}', ${exercise.percent})">+2.5</button>
+                                <button class="adjust-btn" onclick="adjustEffective1RMAndRegenerate('${weightElementId}', -2.5, '${exercise.lift}', ${exercise.percent})">-2.5</button>
+                            `;
+                        }
+                    }
+
+                    weekHtml += `<li>
+                                    <span class="exercise-details">
+                                        ${exercise.name}: ${exercise.sets ? exercise.sets + 'x' : ''}${exercise.reps ? exercise.reps : ''}
+                                        ${(exercise.lift && typeof exercise.percent === 'number' && exercise.percent > 0) ? `@ <span id="${weightElementId}">${displayWeight}</span> (kg/lbs)` : ''}
+                                    </span>
+                                    ${adjustmentButtonsHtml}
+                                    ${exercise.note ? `<span class="notes">(${exercise.note})</span>` : ''}
+                                 </li>`;
+                });
+                weekHtml += `</ul></div>`;
+            });
+
+            weekHtml += '</div>'; // Close the last week-block
+            outputDiv.innerHTML += weekHtml;
+        }
+    </script>
+</body>
+</html>
